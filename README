@@ -28,13 +28,13 @@
 
 * speed
 
-native hash get: 4039474.35/s
-     0xbeef get: 1073280.07/s
-  memcached get: 24175.08/s
+  native hash get: 4039474.35/s
+       0xbeef get: 1073280.07/s
+    memcached get: 24175.08/s
 
 native hash store: 4488895.65/s
-0xbeef store     : 1137081.00/s
-memcached store  : 24019.61/s
+     0xbeef store: 1137081.00/s
+  memcached store: 24019.61/s
 
   * native hash - perl's $hash{$key} = $value and $value = $hash{$key}
 
