@@ -1,0 +1,11 @@
+TYPEMAP
+BADContext* T_PTROBJ_BAD_CONTEXT
+
+INPUT
+T_PTROBJ_BAD_CONTEXT
+        $var = XS_STATE(BADContext *, $arg);
+
+OUTPUT
+T_PTROBJ_BAD_CONTEXT
+        XS_STRUCT2OBJ($arg, "BAD", $var);
+

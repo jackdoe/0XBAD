@@ -1,0 +1,37 @@
+* 0XBAD broadcasty distributed shared memory key/value cache
+
+  the whole thing is horribly simple, using FNV32 hashing to build a table 
+  (without collision detection - so if 2 keys collide they are overwritten every time)
+
+  [box A] - $cache->find($key) || $cache->store_and_broadcast($key,slow_subroutine(),12345);
+  [box B] - daemon receives the broadcast message, and adds it into the local cache
+  [box C] - daemon receives the broadcast message, and adds it into the local cache
+  [box D] - udp is lost
+
+  in this case, when a request for $key hits [box D] it will do the same $cache->store_and_broadcast()
+  and rebroadcast the item.
+
+* fixed size
+  every item in the cache is with fixed size of KEY_SIZE keysize and BLOB_SIZE value size
+  and the shared memory segment is created when you specify exactly how many items between
+  2^16 and 2^32 you want to have in the pool.
+
+  my $b = BAD->new(0xBEEF,17); # will create 2^17 items
+
+  this is very ineficient, but for caching small-ish items it works very good.
+
+* speed
+
+native hash get:  2 wallclock secs ( 3.08 usr +  0.00 sys =  3.08 CPU) @ 4039474.35/s (n=12441581)
+     0xbeef get:  3 wallclock secs ( 1.84 usr +  1.22 sys =  3.06 CPU) @ 1073280.07/s (n=3284237)
+  memcached get:  5 wallclock secs ( 1.06 usr +  2.03 sys =  3.09 CPU) @ 24175.08/s (n=74701)
+
+native hash store:  3 wallclock secs ( 3.22 usr +  0.00 sys =  3.22 CPU) @ 4488895.65/s (n=14454244)
+0xbeef store     :  2 wallclock secs ( 1.68 usr +  1.32 sys =  3.00 CPU) @ 1137081.00/s (n=3411243)
+memcached store  :  5 wallclock secs ( 1.01 usr +  2.10 sys =  3.11 CPU) @ 24019.61/s (n=74701)
+
+  * native hash - perl's $hash{$key} = $value and $value = $hash{$key}
+
+* todo
+  + expiry
+
