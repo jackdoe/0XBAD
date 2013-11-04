@@ -7,13 +7,16 @@
       my $v = $cache->find($key) || 
               $cache->store_and_broadcast($key,slow_subroutine(),12345);
               
-  [box B] - daemon receives the broadcast message, and adds it into the local cache
-  [box C] - daemon receives the broadcast message, and adds it into the local cache
+  [box B] - daemon receives the broadcast message; adds it into the local cache
+  [box C] - daemon receives the broadcast message; adds it into the local cache
   [box D] - udp is lost
 
   in this case, when a request for $key hits [box D] it will do the same 
   $cache->store_and_broadcast() and rebroadcast the item.
 
+* broadcasting
+  store_and_broadcast sends udp broadcast to the specified port
+  
 * fixed size
   every item in the cache is with fixed size of KEY_SIZE keysize and BLOB_SIZE value size
   and the shared memory segment is created when you specify exactly how many items between
@@ -25,13 +28,13 @@
 
 * speed
 
-native hash get:  2 wallclock secs ( 3.08 usr +  0.00 sys =  3.08 CPU) @ 4039474.35/s
-     0xbeef get:  3 wallclock secs ( 1.84 usr +  1.22 sys =  3.06 CPU) @ 1073280.07/s
-  memcached get:  5 wallclock secs ( 1.06 usr +  2.03 sys =  3.09 CPU) @ 24175.08/s
+native hash get: 4039474.35/s
+     0xbeef get: 1073280.07/s
+  memcached get: 24175.08/s
 
-native hash store:  3 wallclock secs ( 3.22 usr +  0.00 sys =  3.22 CPU) @ 4488895.65/s
-0xbeef store     :  2 wallclock secs ( 1.68 usr +  1.32 sys =  3.00 CPU) @ 1137081.00/s
-memcached store  :  5 wallclock secs ( 1.01 usr +  2.10 sys =  3.11 CPU) @ 24019.61/s
+native hash store: 4488895.65/s
+0xbeef store     : 1137081.00/s
+memcached store  : 24019.61/s
 
   * native hash - perl's $hash{$key} = $value and $value = $hash{$key}
 
