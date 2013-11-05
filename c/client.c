@@ -1,13 +1,13 @@
 #include "../bad.h"
 int main(void) {
-    struct shared_pool *sp = shared_pool_init(0xbeef,17);
+    struct shared_pool *sp = shared_pool_init(0xbeef,17,128);
     struct in_addr ip = { .s_addr = 0xffffffff };
-    if (t_add_and_send_to(sp,"aaa",3,(uint8_t *) "bbb",4,ip,1234) != 0)
+    if (t_add_and_send_to(sp,"aaa",3,(uint8_t *) "bbb",4,0,ip,1234) != 0)
         SAYX("failed to store");
     shared_pool_lock(sp);
     struct item *i = t_find_locked(sp,"aaa",3);
     if (i) {
-        D("print found item with klen: %d",i->key_len);
+        D("found item with klen: %d",i->key_len);
     }
     shared_pool_unlock(sp);
 

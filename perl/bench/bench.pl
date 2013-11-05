@@ -3,7 +3,7 @@ use Benchmark ':all';
 use BAD;
 use Cache::Memcached::Fast;
 my $memd = new Cache::Memcached::Fast({servers => [ { address => 'localhost:11211', weight => 2.5 } ]});
-my $beef = BAD->new(0xBEEF,16);
+my $beef = BAD->new(0xBEEF,16,128);
 my %hash;
 
 for my $key(qw(aaaaaaaaaaaaaaaabbbbbbbbbbbbbbb)) {
@@ -11,7 +11,7 @@ for my $key(qw(aaaaaaaaaaaaaaaabbbbbbbbbbbbbbb)) {
         my $value = "a" x int($i);
         my $r = timethese($count, {
             "$i $key - memcached fast store" => sub { $memd->set($key,$value)},
-            "$i $key - 0xbeef store" => sub { $beef->store($key,$value)},
+            "$i $key - 0xbeef store" => sub { $beef->store($key,$value,0)},
             "$i $key - native hash store" => sub { $hash{$key} = $value },
         });
         cmpthese($r); 
