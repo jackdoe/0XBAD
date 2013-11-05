@@ -21,7 +21,8 @@
 
   my $value = $CACHE->find($key) - looks up
   my $value = $CACHE->store($key,$x_value,$expire_after);
-  my $value = $CACHE->store_and_broadcast($key,$x_value,$expire_after,$broadcast_port);
+  my $value = 
+    $CACHE->store_and_broadcast($key,$x_value,$expire_after,$broadcast_port);
 
   if $expire_after is 0, the item never expires
 
@@ -50,11 +51,8 @@ native hash store: 4488895.65/s
   * native hash - perl's $hash{$key} = $value and $value = $hash{$key}
 
 * license
-/*
- * ----------------------------------------------------------------------------
- * "THE BEER-WARE LICENSE" (Revision 42):
- * Borislav Nikolov <jack@sofialondonmoskva> wrote this file. As long as you retain 
- * this notice you can do whatever you want with this stuff. If we meet some day, 
- * and you think this stuff is worth it, you can buy me a beer in return Borislav Nikolov
- * ----------------------------------------------------------------------------
- */
+
+"THE BEER-WARE LICENSE" (Revision 42):
+Borislav Nikolov <jack@sofialondonmoskva> wrote this file. As long as you retain 
+this notice you can do whatever you want with this stuff. If we meet some day, 
+and you think this stuff is worth it, you can buy me a beer in return.
