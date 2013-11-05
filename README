@@ -30,13 +30,15 @@
   store_and_broadcast sends udp broadcast to the specified port
   
 * fixed size
-  every item in the cache is with size sp->item_size (specified on pool creation)
-  and the shared memory segment is created when you specify exactly how many items between
-  2^16 and 2^32 you want to have in the pool.
+  every item in the cache is with size sp->item_size (specified on 
+  pool creation) and the shared memory segment is created when you 
+  specify exactly how many items between 2^16 and 2^32 you want to
+  have in the pool.
 
-  my $b = BAD->new(0xBEEF,17,128); # will create 2^17 items with size 128 bytes
+  my $b = BAD->new(0xBEEF,17,128); 
+      # will create 2^17 items with size 128 bytes
 
-  this is very ineficient, but for caching small-ish items it works very good.
+  this is very ineficient, but for caching small-ish items it works fine.
 
 * speed
 
