@@ -239,7 +239,6 @@ static struct shared_pool *shared_pool_init(int key, int hash_bits, int item_siz
             SAYPX("semget: 0x%x",key + 1);
     } else {
         // in case we created the semaphore we must initialize it
-        // and reset the pool
         shared_pool_unlock(sp);
     }
 
