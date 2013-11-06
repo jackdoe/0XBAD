@@ -258,8 +258,6 @@ static void shared_pool_destroy(struct shared_pool *sp) {
             SAYPX("IPC_RMID failed on sem_id %d",sp->sem_id);
         if (shmctl(sp->shm_id, IPC_RMID, NULL) != 0) 
             SAYPX("IPC_RMID failed on shm_id %d",sp->shm_id);
-    } else {
-       shared_pool_unlock(sp); 
     }
 
     BAD_FREE(sp);
