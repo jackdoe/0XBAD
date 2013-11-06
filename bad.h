@@ -196,6 +196,16 @@ static void t_bind_and_wait_for_updates(struct shared_pool *sp, struct in_addr i
     }
 }
 
+static void shared_pool_reset(struct shared_pool *sp) {
+    shared_pool_lock(sp);
+    int i;
+    for (i = 0; i < sp->hash_mask + 1; i++) {
+        struct item *item = ITEM(sp,i);
+        item->expire_at = 1;
+    }
+    shared_pool_unlock(sp);
+}
+
 static struct shared_pool *shared_pool_init(int key, int hash_bits, int item_size) {
     if (key % 2 == 0)
         SAYX("key must be odd number, key + 1 is used for the semaphore's key");
@@ -214,32 +224,29 @@ static struct shared_pool *shared_pool_init(int key, int hash_bits, int item_siz
     sp->item_size = item_size;
     sp->hash_shift = hash_bits;
     sp->hash_mask = (((uint32_t) 1 << hash_bits) - 1);
+    sp->key = key;
     int flags = 0666 | IPC_CREAT;
-    if ((sp->shm_id = shmget(key, item_size * (sp->hash_mask + 1), flags)) < 0)
+    if ((sp->shm_id = shmget(sp->key, sp->item_size * (sp->hash_mask + 1), flags)) < 0)
         SAYPX("shmget: 0x%x",key);
-    if ((sp->sem_id = semget(key + 1, 1, flags)) < 0)
-        SAYPX("shmget: 0x%x",key + 1);
 
     if ((sp->pool = shmat(sp->shm_id, NULL, 0)) < 0 )
         SAYPX("shmat");
 
-    sp->key = key;
-    shared_pool_unlock(sp);
+    flags |= IPC_EXCL;
+    if ((sp->sem_id = semget(key + 1, 1, flags)) < 0) {
+        flags &= ~IPC_EXCL;
+        if ((sp->sem_id = semget(key + 1, 1, flags)) < 0)
+            SAYPX("semget: 0x%x",key + 1);
+    } else {
+        // in case we created the semaphore we must initialize it
+        // and reset the pool
+        shared_pool_unlock(sp);
+    }
+
     return sp;
 }
 
-static void shared_pool_reset(struct shared_pool *sp) {
-    shared_pool_lock(sp);
-    int i;
-    for (i = 0; i < sp->hash_mask + 1; i++) {
-        struct item *item = ITEM(sp,i);
-        item->expire_at = 1;
-    }
-    shared_pool_unlock(sp);
-}
-
 static void shared_pool_destroy(struct shared_pool *sp) {
-    shared_pool_lock(sp);
     if (shmdt(sp->pool) != 0)
         SAYPX("detach failed");
     
