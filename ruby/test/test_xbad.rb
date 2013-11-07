@@ -12,5 +12,8 @@ class Test::Unit::TestCase
         complex = { 1 => [1,2,3,4,"aaa"], "b" => "complex"}
         x.store("key2",Sereal.encode(complex),0)
         assert_equal Sereal.decode(x.find("key2")),complex
+        assert_raise TypeError do
+            x.store("key2",nil,0)
+        end
     end
 end

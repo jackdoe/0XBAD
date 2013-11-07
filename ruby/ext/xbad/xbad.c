@@ -19,7 +19,14 @@ inline struct shared_pool *shared_pool(VALUE obj) {
     return sp;
 }
 
+static inline void die_unless_string(VALUE x) {
+    if (TYPE(x) != T_STRING)
+        rb_raise(rb_eTypeError, "invalid type for input %s",rb_obj_classname(x));
+}
+
 static VALUE XBAD_store(VALUE self, VALUE key, VALUE value, VALUE _expire_after) {
+    die_unless_string(key);
+    die_unless_string(value);
     struct shared_pool *sp = shared_pool(self);
     int expire_after = NUM2INT(_expire_after);
     if (t_add(sp,RSTRING_PTR(key),RSTRING_LEN(key),RSTRING_PTR(value),RSTRING_LEN(value),expire_after) != 0)
@@ -28,6 +35,8 @@ static VALUE XBAD_store(VALUE self, VALUE key, VALUE value, VALUE _expire_after)
 }
 
 static VALUE XBAD_store_and_broadcast(VALUE self, VALUE key, VALUE value, VALUE _expire_after,VALUE _port) {
+    die_unless_string(key);
+    die_unless_string(value);
     struct shared_pool *sp = shared_pool(self);
     int expire_after = NUM2INT(_expire_after);
     unsigned short port = NUM2INT(_port);
