@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 use BAD; 
-use Test::More tests => 5;
+use Test::More tests => 7;
 use Data::Dumper;
 my $val = 'a' x 100;
 
@@ -18,3 +18,12 @@ eval {
 };
 like $@,qr{unable to store};
 
+eval {
+    $b->store("b",undef,0);
+};
+like $@,qr{string is required};
+
+eval {
+    $b->store("b",{a => 'b'},0);
+};
+like $@,qr{string is required};

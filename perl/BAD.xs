@@ -4,6 +4,12 @@
 
 #include "ppport.h"
 
+#define DIE_UNLESS_STRING(x)            \
+do {                                    \
+    if (!SvPOKp((x)))                   \
+       die("string is required");       \
+} while(0)
+
 #include "BAD.h"
 
 MODULE = BAD PACKAGE = BAD		
@@ -47,6 +53,9 @@ find(BADContext* ctx, SV *key)
 void
 store(BADContext *ctx, SV *_key, SV* _value, int expire_after)
     PPCODE:
+        DIE_UNLESS_STRING(_key);
+        DIE_UNLESS_STRING(_value);
+
         STRLEN len,klen;
         char *key,*value;
         value = SvPV(_value, len);
@@ -56,10 +65,12 @@ store(BADContext *ctx, SV *_key, SV* _value, int expire_after)
             die("unable to store item");
         XPUSHs(_value);
 
-
 void
 store_and_broadcast(BADContext *ctx, SV *_key, SV* _value, int expire_after, unsigned short port)
     PPCODE:
+        DIE_UNLESS_STRING(_key);
+        DIE_UNLESS_STRING(_value);
+
         STRLEN len,klen;
         char *key,*value;
         value = SvPV(_value, len);
