@@ -52,8 +52,7 @@ store(BADContext *ctx, SV *_key, SV* _value, int expire_after)
         value = SvPV(_value, len);
         key = SvPV(_key, klen);
 
-        struct item *i = t_add(ctx,key,klen,value,len,expire_after);
-        if (i == NULL)
+        if (t_add(ctx,key,klen,value,len,expire_after) != 0)
             die("unable to store item");
         XPUSHs(_value);
 

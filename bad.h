@@ -38,7 +38,7 @@ do {                                     \
     s = (cast *) x_malloc(sizeof(cast)); \
 } while(0)
 
-void *x_malloc(size_t s) {
+static void *x_malloc(size_t s) {
     void *x = malloc(s);
     if (!x)
         SAYPX("malloc for %zu failed",s);
@@ -49,7 +49,8 @@ void *x_malloc(size_t s) {
 
 #ifndef BAD_FREE
 #define BAD_FREE(s) x_free(s)
-void x_free(void *x) {
+
+static void x_free(void *x) {
     if (x != NULL)
         free(x);
 }
@@ -122,11 +123,14 @@ static inline struct item *t_add_and_lock(struct shared_pool *sp,char *key, size
     return item;
 }
 
-static inline struct item *t_add(struct shared_pool *sp,char *key, size_t klen, uint8_t *p, size_t len,uint32_t expire_after) {
+static inline int t_add(struct shared_pool *sp,char *key, size_t klen, uint8_t *p, size_t len,uint32_t expire_after) {
     struct item *item = t_add_and_lock(sp,key,klen,p,len,expire_after);
-    if (item != NULL)
+    if (item != NULL) {
         shared_pool_unlock_item(item);
-    return  item;
+        return 0;
+    } else {
+        return -EFAULT;
+    }
 }
 static inline int t_add_and_send_to(struct shared_pool *sp,char *key, size_t klen, uint8_t *p, size_t len,uint32_t expire_after,struct in_addr ip, uint16_t port) {  
     if (sp->c_sock == 0) {
@@ -146,11 +150,9 @@ static inline int t_add_and_send_to(struct shared_pool *sp,char *key, size_t kle
         return -EFAULT;
 
     int rc = sendto(sp->c_sock,item,sp->item_size,0,(struct sockaddr *)&addr,sizeof(addr));
-    if (rc != sp->item_size) {
-        shared_pool_unlock_item(item);
-        return -EFAULT;
-    }
     shared_pool_unlock_item(item);
+    if (rc != sp->item_size) 
+        return -EFAULT;
     return 0;
 }
 
