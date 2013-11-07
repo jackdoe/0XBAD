@@ -50,15 +50,16 @@
   this is very ineficient, but for caching small-ish items it works fine.
 
 * speed
+
 perl:
+  (key: aaaaaaaaaaaaaaaabbbbbbbbbbbbbbb value 'a' x 100)
+    native hash store: 4644160.73/s
+          0xBAD store: 3062807.05/s
+      memcached store: 24514.01/s
 
-    native hash get: 4039474.35/s
-         0xbeef get: 1073280.07/s
-      memcached get: 24175.08/s
-
-  native hash store: 4488895.65/s
-       0xbeef store: 1137081.00/s
-    memcached store: 24019.61/s
+      native hash get: 3476691.62/s
+            0xBAD get: 2153601.64/s
+        memcached get: 25216.77/s
 
   * native hash - perl's $hash{$key} = $value and $value = $hash{$key}
 
