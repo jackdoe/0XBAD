@@ -16,7 +16,7 @@
 
 * usage
   my $CACHE = BAD->new(0xbeef,16,128)
-    creates new shared memory segment with id 0xBEEF, and semaphore with id 0xBEEF + 1
+    creates new shared memory segment with id 0xBEEF
     the segment size is 2^16 * 128 bytes, and it can hold at most 2^16 items
 
   my $value = $CACHE->find($key) - looks up
@@ -51,6 +51,11 @@ native hash store: 4488895.65/s
   memcached store: 24019.61/s
 
   * native hash - perl's $hash{$key} = $value and $value = $hash{$key}
+
+* locking
+  everything is protected by simple gcc atomic builtins
+  worst case is somebody locks an item and goes away (interrupted by signal
+  or something) 
 
 * license
 

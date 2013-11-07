@@ -31,18 +31,16 @@ DESTROY(BADContext* ctx)
 SV*
 find(BADContext* ctx, SV *key)
     CODE:
-        shared_pool_lock(ctx);
-
         STRLEN len;
         char *p;
         p = SvPV(key, len);
-        struct item *i = t_find_locked(ctx,p,len);
+        struct item *i = t_find_and_lock(ctx,p,len);
         if (i) {
             RETVAL = newSVpv(ITEM_BLOB(i),i->blob_len); 
+            shared_pool_unlock_item(i);
         } else {
             RETVAL = &PL_sv_undef;
         }
-        shared_pool_unlock(ctx);
     OUTPUT:
         RETVAL
 
@@ -54,8 +52,8 @@ store(BADContext *ctx, SV *_key, SV* _value, int expire_after)
         value = SvPV(_value, len);
         key = SvPV(_key, klen);
 
-        int rc = t_add(ctx,key,klen,value,len,expire_after);
-        if (rc < 0)
+        struct item *i = t_add(ctx,key,klen,value,len,expire_after);
+        if (i == NULL)
             die("unable to store item");
         XPUSHs(_value);
 

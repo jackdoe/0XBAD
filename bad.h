@@ -4,10 +4,10 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/sem.h>
 #include <sys/shm.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <unistd.h>
 #ifndef BAD_DIE
 #define BAD_DIE(fmt,arg...)  \
 do {                         \
@@ -55,10 +55,8 @@ void x_free(void *x) {
 }
 #endif
 
-static struct sembuf sem_lock = { 0, -1, 0 };
-static struct sembuf sem_unlock = { 0, 1, 0 };
-
 struct item {
+    volatile int lock;
     uint32_t key_len;
     uint32_t blob_len;
     uint32_t expire_at;
@@ -69,16 +67,12 @@ struct shared_pool {
     uint8_t *pool;
     uint32_t item_size;
     int shm_id;
-    int sem_id;
     int key;
     int hash_mask;
     int hash_shift;
     int c_sock;
     int s_sock;
 };
-
-static void shared_pool_destroy(struct shared_pool *);
-
 
 inline uint32_t FNV32(struct shared_pool *sp, const char *s,size_t len) {
     uint32_t hash = FNV_OFFSET_32, i;
@@ -89,35 +83,33 @@ inline uint32_t FNV32(struct shared_pool *sp, const char *s,size_t len) {
     return (hash >> sp->hash_shift) ^ (hash & sp->hash_mask);
 }                         
 
-static inline void shared_pool_lock(struct shared_pool *sp) {
-    if (semop(sp->sem_id,&sem_lock, 1) == -1)
-        SAYPX("semop");
+static inline void shared_pool_lock_item(struct item *item) {
+    while (__sync_lock_test_and_set(&item->lock, 1)) {
+        while(item->lock)
+            ; // spin with less stress
+    }
 }
 
-static inline void shared_pool_unlock(struct shared_pool *sp) {
-    if (semop(sp->sem_id,&sem_unlock, 1) == -1)
-        SAYPX("semop");
+static inline void shared_pool_unlock_item(struct item *item) {
+    __sync_lock_release(&item->lock);
 }
 
-static inline int shared_pool_unlock_and_return_err(struct shared_pool *sp, int err) {
-    shared_pool_unlock(sp);
-    return err;
-}
-
-static inline struct item *t_find_locked(struct shared_pool *sp, char *key, size_t klen) {
+static inline struct item *t_find_and_lock(struct shared_pool *sp, char *key, size_t klen) {
     uint32_t index = FNV32(sp,key,klen);
     struct item *item = ITEM(sp,index);
+    shared_pool_lock_item(item);
     if ((item->expire_at == 0 || item->expire_at > time(NULL)) && klen > 0 && item->key_len == klen && memcmp(ITEM_KEY(item),key,klen) == 0)
         return item;
+    shared_pool_unlock_item(item);
     return NULL;
 }
 
-struct item *t_add_locked(struct shared_pool *sp,char *key, size_t klen, uint8_t *p, size_t len,uint32_t expire_after) {
+static inline struct item *t_add_and_lock(struct shared_pool *sp,char *key, size_t klen, uint8_t *p, size_t len,uint32_t expire_after) {
     if (len <= 0 || len + sizeof(struct item) >= sp->item_size)
         return NULL;
-
     uint32_t index = FNV32(sp,key,klen);
     struct item *item = ITEM(sp,index);
+    shared_pool_lock_item(item);
     item->key_len = klen;
     item->blob_len = len;
     if (expire_after > 0)
@@ -130,12 +122,12 @@ struct item *t_add_locked(struct shared_pool *sp,char *key, size_t klen, uint8_t
     return item;
 }
 
-static inline int t_add(struct shared_pool *sp,char *key, size_t klen, uint8_t *p, size_t len,uint32_t expire_after) {
-    shared_pool_lock(sp);
-    struct item *item = t_add_locked(sp,key,klen,p,len,expire_after);
-    return shared_pool_unlock_and_return_err(sp,item ? 0 : -EFAULT);
+static inline struct item *t_add(struct shared_pool *sp,char *key, size_t klen, uint8_t *p, size_t len,uint32_t expire_after) {
+    struct item *item = t_add_and_lock(sp,key,klen,p,len,expire_after);
+    if (item != NULL)
+        shared_pool_unlock_item(item);
+    return  item;
 }
-
 static inline int t_add_and_send_to(struct shared_pool *sp,char *key, size_t klen, uint8_t *p, size_t len,uint32_t expire_after,struct in_addr ip, uint16_t port) {  
     if (sp->c_sock == 0) {
         if ((sp->c_sock = socket(AF_INET,SOCK_DGRAM,0)) < 0)
@@ -149,16 +141,17 @@ static inline int t_add_and_send_to(struct shared_pool *sp,char *key, size_t kle
     addr.sin_family = AF_INET;
     addr.sin_addr = ip;
     addr.sin_port = htons(port);
-    shared_pool_lock(sp);
-    struct item *item = t_add_locked(sp,key,klen,p,len,expire_after);
+    struct item *item = t_add_and_lock(sp,key,klen,p,len,expire_after);
     if (item == NULL)
-        return shared_pool_unlock_and_return_err(sp,-EFAULT);
+        return -EFAULT;
 
     int rc = sendto(sp->c_sock,item,sp->item_size,0,(struct sockaddr *)&addr,sizeof(addr));
-    if (rc != sp->item_size)
-        return shared_pool_unlock_and_return_err(sp,rc);
-
-    return shared_pool_unlock_and_return_err(sp,0);
+    if (rc != sp->item_size) {
+        shared_pool_unlock_item(item);
+        return -EFAULT;
+    }
+    shared_pool_unlock_item(item);
+    return 0;
 }
 
 static void t_bind_and_wait_for_updates(struct shared_pool *sp, struct in_addr ip, uint16_t port) {
@@ -196,20 +189,7 @@ static void t_bind_and_wait_for_updates(struct shared_pool *sp, struct in_addr i
     }
 }
 
-static void shared_pool_reset(struct shared_pool *sp) {
-    shared_pool_lock(sp);
-    int i;
-    for (i = 0; i < sp->hash_mask + 1; i++) {
-        struct item *item = ITEM(sp,i);
-        item->expire_at = 1;
-    }
-    shared_pool_unlock(sp);
-}
-
 static struct shared_pool *shared_pool_init(int key, int hash_bits, int item_size) {
-    if (key % 2 == 0)
-        SAYX("key must be odd number, key + 1 is used for the semaphore's key");
-
     if (hash_bits < 16 || hash_bits > 32 )
         SAYX("hash bits must be between 16 and 32");
  
@@ -225,24 +205,53 @@ static struct shared_pool *shared_pool_init(int key, int hash_bits, int item_siz
     sp->hash_shift = hash_bits;
     sp->hash_mask = (((uint32_t) 1 << hash_bits) - 1);
     sp->key = key;
+
     int flags = 0666 | IPC_CREAT;
-    if ((sp->shm_id = shmget(sp->key, sp->item_size * (sp->hash_mask + 1), flags)) < 0)
+    #define SHMGET(sp) shmget(sp->key, sp->item_size * (sp->hash_mask + 1), flags)
+    if ((sp->shm_id = SHMGET(sp)) < 0)
         SAYPX("shmget: 0x%x",key);
+    #undef SHMGET
 
     if ((sp->pool = shmat(sp->shm_id, NULL, 0)) < 0 )
         SAYPX("shmat");
 
-    flags |= IPC_EXCL;
-    if ((sp->sem_id = semget(key + 1, 1, flags)) < 0) {
-        flags &= ~IPC_EXCL;
-        if ((sp->sem_id = semget(key + 1, 1, flags)) < 0)
-            SAYPX("semget: 0x%x",key + 1);
-    } else {
-        // in case we created the semaphore we must initialize it
-        shared_pool_unlock(sp);
-    }
-
     return sp;
+}
+
+static void shared_pool_reset(struct shared_pool *sp) {
+    int i;
+    for (i = 0; i < sp->hash_mask + 1; i++) {
+        struct item *item = ITEM(sp,i);
+        item->expire_at = 1;
+    }
+}
+
+// this is really bad - please dont use it unless you want to debug something
+static void shared_pool_blind_guardian(struct shared_pool *sp, int interval_us,int cycles,int warn_only) {
+    int i,attempts;
+    struct item *item;
+    for (;;) {
+        for (i = 0; i < sp->hash_mask + 1; i++) {
+            item = ITEM(sp,i);
+            if (item->key_len > 0) {
+                attempts = 0;
+                while (item->lock == 1) { // no barrier
+                    if (attempts++ > cycles) {
+                        char buf[BUFSIZ];
+                        int len = item->key_len > BUFSIZ - 1 ? BUFSIZ - 1 : item->key_len;
+                        memcpy(buf,ITEM_KEY(item),len);
+                        buf[len] = '\0';
+                        E("unlocking - %s, locked for more then %d cycles",buf,cycles);
+                        if (!warn_only) {
+                            item->lock = 0;
+                            item->expire_at = 1;
+                        }
+                    }
+                }
+            }
+        }
+        usleep(interval_us);
+    }
 }
 
 static void shared_pool_destroy(struct shared_pool *sp) {
@@ -250,16 +259,13 @@ static void shared_pool_destroy(struct shared_pool *sp) {
         SAYPX("detach failed");
     
     struct shmid_ds ds;
-    
+
     if (shmctl(sp->shm_id, IPC_STAT, &ds) != 0)
-        SAYPX("IPC_STAT failed on sem_id %d",sp->sem_id);
+        SAYPX("IPC_STAT failed");
     if (ds.shm_nattch == 0) {
-        if (semctl(sp->sem_id, 0, IPC_RMID ) != 0) 
-            SAYPX("IPC_RMID failed on sem_id %d",sp->sem_id);
         if (shmctl(sp->shm_id, IPC_RMID, NULL) != 0) 
             SAYPX("IPC_RMID failed on shm_id %d",sp->shm_id);
     }
-
     BAD_FREE(sp);
 }
 

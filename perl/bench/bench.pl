@@ -6,7 +6,7 @@ my $memd = new Cache::Memcached::Fast({servers => [ { address => 'localhost:1121
 my $beef = BAD->new(0xBEEF,16,128);
 my %hash;
 
-for my $key(qw(aaaaaaaaaaaaaaaabbbbbbbbbbbbbbb)) {
+for my $key(qw(a aaaaaaaaaaaaaaaabbbbbbbbbbbbbbb)) {
     for my $i(qw(100)) {
         my $value = "a" x int($i);
         my $r = timethese($count, {
