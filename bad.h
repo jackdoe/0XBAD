@@ -191,15 +191,20 @@ static void t_bind_and_wait_for_updates(struct shared_pool *sp, struct in_addr i
     }
 }
 
-static struct shared_pool *shared_pool_init(int key, int hash_bits, int item_size) {
+static struct shared_pool *shared_pool_alloc(void) {
+    struct shared_pool *sp;
+    BAD_ALLOC(sp,struct shared_pool);
+    memset(sp,0,sizeof(*sp));
+    return sp;
+}
+
+static struct shared_pool *shared_pool_init(struct shared_pool *sp, int key, int hash_bits, int item_size) {
     if (hash_bits < 16 || hash_bits > 32 )
         SAYX("hash bits must be between 16 and 32");
  
     if (item_size <= sizeof(struct item))
         SAYX("item size must be at least %zu",sizeof(struct item));
 
-    struct shared_pool *sp;
-    BAD_ALLOC(sp,struct shared_pool);
     sp->c_sock = 0;
     sp->s_sock = 0;
     sp->pool = NULL;
@@ -220,6 +225,10 @@ static struct shared_pool *shared_pool_init(int key, int hash_bits, int item_siz
     return sp;
 }
 
+static struct shared_pool *shared_pool_alloc_and_init(int key, int hash_bits, int item_size) {
+    struct shared_pool *sp = shared_pool_alloc();
+    return shared_pool_init(sp,key,hash_bits,item_size);
+}
 static void shared_pool_reset(struct shared_pool *sp) {
     int i;
     for (i = 0; i < sp->hash_mask + 1; i++) {
@@ -257,16 +266,18 @@ static void shared_pool_blind_guardian(struct shared_pool *sp, int interval_us,i
 }
 
 static void shared_pool_destroy(struct shared_pool *sp) {
-    if (shmdt(sp->pool) != 0)
-        SAYPX("detach failed");
-    
-    struct shmid_ds ds;
+    if (sp->pool) {
+        if (shmdt(sp->pool) != 0)
+            SAYPX("detach failed");
+        
+        struct shmid_ds ds;
 
-    if (shmctl(sp->shm_id, IPC_STAT, &ds) != 0)
-        SAYPX("IPC_STAT failed");
-    if (ds.shm_nattch == 0) {
-        if (shmctl(sp->shm_id, IPC_RMID, NULL) != 0) 
-            SAYPX("IPC_RMID failed on shm_id %d",sp->shm_id);
+        if (shmctl(sp->shm_id, IPC_STAT, &ds) != 0)
+            SAYPX("IPC_STAT failed");
+        if (ds.shm_nattch == 0) {
+            if (shmctl(sp->shm_id, IPC_RMID, NULL) != 0) 
+                SAYPX("IPC_RMID failed on shm_id %d",sp->shm_id);
+        }
     }
     BAD_FREE(sp);
 }

@@ -3,7 +3,7 @@
 
 
 int main(void) {
-    struct shared_pool *sp = shared_pool_init(0xbeef,17,128);
+    struct shared_pool *sp = shared_pool_alloc_and_init(0xbeef,17,128);
     struct in_addr ip = { .s_addr = 0xffffffff };
     if (t_add_and_send_to(sp,"aaa",3,(uint8_t *) "bbb",4,0,ip,1234) < 0)
         SAYX("failed to store");

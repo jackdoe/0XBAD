@@ -24,7 +24,7 @@ BAD::new(key,hash_bits,item_size)
     PREINIT:
         BADContext* ctx;
     CODE:
-        ctx = shared_pool_init(key,hash_bits,item_size);
+        ctx = shared_pool_alloc_and_init(key,hash_bits,item_size);
         RETVAL=ctx;
     OUTPUT:
         RETVAL

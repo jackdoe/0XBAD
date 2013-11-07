@@ -5,7 +5,7 @@ require ENV['USE_CURRENT_DIRECTORY'] ? File.absolute_path(File.join(File.dirname
 
 class Test::Unit::TestCase
     def test_everything
-        x = XBAD.create(0xBAD,16,128);
+        x = XBAD.new(0xBAD,16,128);
         x.store("key","value",0)
         assert_equal x.find("key"), "value"
 

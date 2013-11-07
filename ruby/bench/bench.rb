@@ -9,7 +9,7 @@ require 'memcached'
 cache = Memcached.new("localhost:11211")
 
 n = 1_000_000
-b = XBAD.create(0xBAD,16,128)
+b = XBAD.new(0xBAD,16,128)
 key = "abcdef"
 missing = "abcdefg"
 value = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
