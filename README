@@ -14,6 +14,10 @@
   in this case, when a request for $key hits [box D] it will do the same 
   $cache->store_and_broadcast() and rebroadcast the item.
 
+* install
+  ruby: gem install xbad
+  perl: cd perl && perl Makefile.PL && make && make test && make install
+
 * usage
   my $CACHE = BAD->new(0xbeef,16,128)
     creates new shared memory segment with id 0xBEEF
@@ -41,16 +45,41 @@
   this is very ineficient, but for caching small-ish items it works fine.
 
 * speed
+perl:
 
-  native hash get: 4039474.35/s
-       0xbeef get: 1073280.07/s
-    memcached get: 24175.08/s
+    native hash get: 4039474.35/s
+         0xbeef get: 1073280.07/s
+      memcached get: 24175.08/s
 
-native hash store: 4488895.65/s
-     0xbeef store: 1137081.00/s
-  memcached store: 24019.61/s
+  native hash store: 4488895.65/s
+       0xbeef store: 1137081.00/s
+    memcached store: 24019.61/s
 
   * native hash - perl's $hash{$key} = $value and $value = $hash{$key}
+
+ruby:
+            hash set  3173242.4 i/s -   15841482 in   4.993171s
+            xbad set  3760115.4 i/s -   18829228 in   5.008079s
+            hash get  4008048.8 i/s -   20056464 in   5.004359s
+            xbad get  1844151.9 i/s -    8363250 in   5.010949s
+            hash mis  4262632.4 i/s -   21317955 in   5.001340s
+            xbad mis  4441230.5 i/s -   22199103 in   4.999691s
+        memcache set    13164.1 i/s -      66689 in   5.070756s
+        memcache get    14114.6 i/s -      70788 in   5.026147s
+       memcache cset    12767.4 i/s -      64501 in   5.076763s
+       memcache cget    13474.4 i/s -      68202 in   5.082600s
+      hash clone set   437421.6 i/s -    2196828 in   5.031107s
+      hash clone get   446848.6 i/s -    2230452 in   4.996158s
+    xbad set-encoded   794074.4 i/s -    3953088 in   5.006689s
+    xbad get-encoded   372012.9 i/s -    1855488 in   5.035192s
+ xbad set-encoded-sn   558399.0 i/s -    2798724 in   5.023483s
+ xbad get-encoded-sn   372813.0 i/s -    1858272 in   5.028326s
+
+
+  * hash- is ruby's native hash hash[key] = value and value = hash[key]
+  * hash clone is hash[key] = value.clone and value = hash[key].clone
+   xbad - encoded is Sereal (https://github.com/Sereal/Sereal) encoded
+   xbad encoded-sn is Sereal encoded and snappy compressed
 
 * locking
   everything is protected by simple gcc atomic builtins
