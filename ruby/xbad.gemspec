@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
     s.name         = "xbad"
-    s.version      = "0.0.2"
+    s.version      = "0.0.3"
     s.summary      = "xbad - shared memory key/value cache"
     s.description  = "xbad - shared memory key/value cache using shared memory and udp broadcasts for distribution"
     s.homepage     = "https://github.com/jackdoe/0XBAD"
