@@ -30,6 +30,11 @@
 
   if $expire_after is 0, the item never expires
 
+  ruby: 
+    b = XBAD.create(0xBAD,16,128)
+    b.store(key,value,expire_after)
+    value = b.find(key)
+
 * broadcasting
   store_and_broadcast sends udp broadcast to the specified port
   
