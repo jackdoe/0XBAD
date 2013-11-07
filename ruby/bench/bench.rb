@@ -34,5 +34,7 @@ Benchmark.ips do |x|
     x.report("xbad get-encoded") { z = Sereal.decode(b.find(key)) }
     x.report("xbad set-encoded-sn") { b.store(key,Sereal.encode(complex,true),0) }
     x.report("xbad get-encoded-sn") { z = Sereal.decode(b.find(key)) }
+    x.report("xbad mashal") { b.store(key,Marshal.dump(complex),0) }
+    x.report("xbad unmarshal") { z = Marshal.load(b.find(key)) }
 end
 
